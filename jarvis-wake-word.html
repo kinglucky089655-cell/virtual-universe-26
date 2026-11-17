@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>JARVIS — Voice Assistant</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: rgba(15, 29, 48, .82);
+      --line: rgba(105, 190, 255, .2);
+      --blue: #70d6ff;
+      --muted: #9aacc2;
+      --text: #edf7ff;
+      --green: #70f0c0;
+      --red: #ff8291;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 32px 18px;
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      background: radial-gradient(ellipse at 50% 35%, #142d48 0, var(--bg) 62%);
+      font: 16px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+    main { width: min(720px, 100%); }
+    .card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--panel);
+      box-shadow: 0 24px 80px #0008, inset 0 1px #ffffff0c;
+      backdrop-filter: blur(14px);
+    }
+    header { padding: 28px 30px 12px; text-align: center; }
+    .eyebrow { color: var(--blue); font-size: .75rem; font-weight: 700; letter-spacing: .22em; }
+    h1 { margin: 5px 0 2px; font-size: clamp(2rem, 8vw, 3rem); letter-spacing: .12em; }
+    header p { margin: 0; color: var(--muted); }
+    .orb-wrap { display: grid; place-items: center; padding: 20px 0 12px; }
+    .orb {
+      display: grid; width: 142px; height: 142px; place-items: center;
+      border: 1px solid #70d6ff66; border-radius: 50%;
+      color: var(--blue); font-size: 2rem;
+      background: radial-gradient(circle at 50% 45%, #70d6ff28, #70d6ff08 62%, transparent 64%);
+      box-shadow: 0 0 24px #70d6ff24, inset 0 0 24px #70d6ff19;
+      transition: .25s ease;
+    }
+    .orb.listening { animation: pulse 1.8s infinite; }
+    .orb.speaking { color: var(--green); border-color: #70f0c077; box-shadow: 0 0 34px #70f0c044, inset 0 0 28px #70f0c022; }
+    @keyframes pulse { 50% { transform: scale(1.055); box-shadow: 0 0 46px #70d6ff55, inset 0 0 30px #70d6ff33; } }
+    #status { min-height: 26px; padding: 0 20px; text-align: center; color: var(--blue); font-weight: 600; }
+    .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 16px 24px 22px; }
+    button, input, select { font: inherit; }
+    button {
+      min-height: 44px; padding: 9px 16px; border: 1px solid var(--line); border-radius: 12px;
+      color: var(--text); background: #14283e; cursor: pointer; transition: .15s ease;
+    }
+    button:hover:not(:disabled) { border-color: var(--blue); transform: translateY(-1px); }
+    button:disabled { opacity: .48; cursor: not-allowed; }
+    button.primary { color: #06121e; border-color: transparent; background: var(--blue); font-weight: 750; }
+    button.danger { color: #ffdce0; }
+    .content { padding: 0 24px 24px; }
+    .response {
+      min-height: 88px; padding: 16px; border: 1px solid var(--line); border-radius: 14px;
+      color: #dceaf7; background: #081522aa; white-space: pre-wrap;
+    }
+    .response-label { margin: 0 0 8px; color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    form { display: flex; gap: 8px; margin-top: 12px; }
+    input, select { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: #081522; }
+    input { flex: 1; }
+    .settings { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--muted); font-size: .9rem; }
+    select { flex: 1; }
+    details { margin-top: 18px; color: var(--muted); font-size: .9rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    ul { margin: 8px 0 0; padding-left: 22px; }
+    .note { margin: 14px 0 0; font-size: .82rem; color: var(--muted); }
+    @media (max-width: 520px) { header { padding-inline: 18px; } .content { padding-inline: 16px; } .controls { padding-inline: 12px; } form { flex-wrap: wrap; } form button { flex: 1; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card" aria-label="Jarvis voice assistant">
+      <header>
+        <div class="eyebrow">PERSONAL VOICE ASSISTANT</div>
+        <h1>J.A.R.V.I.S.</h1>
+        <p>Say the wake word to begin</p>
+      </header>
+      <div class="orb-wrap"><div id="orb" class="orb" aria-hidden="true">J</div></div>
+      <div id="status" role="status" aria-live="polite">Ready when you are.</div>
+      <div class="controls">
+        <button id="startButton" class="primary" type="button">Start listening</button>
+        <button id="stopButton" class="danger" type="button" disabled>Stop</button>
+        <button id="testButton" type="button">Test voice</button>
+      </div>
+      <div class="content">
+        <p class="response-label">Assistant</p>
+        <div id="response" class="response" aria-live="polite">Click “Start listening,” allow microphone access, then say “Jarvis.”</div>
+        <form id="commandForm">
+          <input id="commandInput" type="text" autocomplete="off" placeholder="Or type a command…" aria-label="Type a command">
+          <button type="submit">Send</button>
+        </form>
+        <div class="settings">
+          <label for="voiceSelect">Voice</label>
+          <select id="voiceSelect" aria-label="Choose a voice"><option value="">Default voice</option></select>
+        </div>
+        <details>
+          <summary>Commands you can try</summary>
+          <ul>
+            <li>“Jarvis, what time is it?”</li>
+            <li>“Jarvis, what is today’s date?”</li>
+            <li>“Jarvis, tell me a joke.”</li>
+            <li>“Jarvis, help.”</li>
+            <li>“Jarvis, search for [your query].”</li>
+            <li>“Jarvis, open Google / YouTube / Wikipedia.”</li>
+          </ul>
+        </details>
+        <p class="note">Voice recognition uses your browser’s speech service. Keep this page open and active; wake-word listening is not a background or always-on service.</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const status = document.getElementById('status');
+      const response = document.getElementById('response');
+      const orb = document.getElementById('orb');
+      const startButton = document.getElementById('startButton');
+      const stopButton = document.getElementById('stopButton');
+      const testButton = document.getElementById('testButton');
+      const commandForm = document.getElementById('commandForm');
+      const commandInput = document.getElementById('commandInput');
+      const voiceSelect = document.getElementById('voiceSelect');
+
+      let recognition;
+      let listening = false;
+      let recognizing = false;
+      let speaking = false;
+      let waitingForCommand = false;
+      let restartTimer;
+
+      const setStatus = (message) => { status.textContent = message; };
+      const setOrb = (mode) => { orb.className = `orb ${mode || ''}`.trim(); };
+
+      function populateVoices() {
+        if (!('speechSynthesis' in window)) return;
+        const selected = voiceSelect.value;
+        const voices = window.speechSynthesis.getVoices();
+        voiceSelect.replaceChildren(new Option('Default voice', ''));
+        voices.filter(voice => /^en(-|_)/i.test(voice.lang)).forEach(voice => {
+          voiceSelect.add(new Option(`${voice.name} (${voice.lang})`, voice.voiceURI));
+        });
+        if ([...voiceSelect.options].some(option => option.value === selected)) voiceSelect.value = selected;
+      }
+
+      function speak(text) {
+        response.textContent = text;
+        if (!('speechSynthesis' in window)) {
+          setStatus('Your browser does not support voice output.');
+          return;
+        }
+        speaking = true;
+        setOrb('speaking');
+        setStatus('Speaking…');
+        if (recognition && recognizing) recognition.stop();
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        const selectedVoice = window.speechSynthesis.getVoices().find(voice => voice.voiceURI === voiceSelect.value);
+        if (selectedVoice) utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice?.lang || 'en-US';
+        utterance.onend = () => {
+          speaking = false;
+          setOrb(listening ? 'listening' : '');
+          if (listening) {
+            setStatus(waitingForCommand ? 'Listening for your command…' : 'Say “Jarvis” to wake me.');
+            scheduleRestart();
+          } else setStatus('Ready when you are.');
+        };
+        utterance.onerror = () => {
+          speaking = false;
+          setOrb(listening ? 'listening' : '');
+          if (listening) scheduleRestart();
+        };
+        window.speechSynthesis.speak(utterance);
+      }
+
+      function startRecognition() {
+        if (!recognition || !listening || speaking || recognizing) return;
+        try {
+          recognition.start();
+          recognizing = true;
+        } catch (error) {
+          // start() can throw while a previous recognition session is still closing.
+          if (error.name !== 'InvalidStateError') setStatus(`Could not start microphone: ${error.message}`);
+        }
+      }
+
+      function scheduleRestart() {
+        clearTimeout(restartTimer);
+        if (listening && !speaking) restartTimer = setTimeout(startRecognition, 350);
+      }
+
+      function answerFor(command) {
+        const normalized = command.toLowerCase().trim().replace(/[.!?]+$/, '');
+        if (/^(hi|hello|hey)( jarvis)?\b/.test(normalized)) return 'Hello. I’m listening.';
+        if (/\b(help|what can you do|commands)\b/.test(normalized)) {
+          return 'I can tell you the time or date, tell a joke, search the web, or open Google, YouTube, and Wikipedia.';
+        }
+        if (/\b(time|clock)\b/.test(normalized)) {
+          return `It is ${new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date())}.`;
+        }
+        if (/\b(date|day|today)\b/.test(normalized)) {
+          return `Today is ${new Intl.DateTimeFormat(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())}.`;
+        }
+        if (/\b(joke|make me laugh)\b/.test(normalized)) {
+          return 'Why did the computer get cold? It left its Windows open.';
+        }
+        const search = normalized.match(/^(?:please\s+)?(?:search(?:\s+the\s+web)?\s+for|google)\s+(.+)/);
+        if (search) {
+          const query = search[1].trim();
+          window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+          return `Searching the web for ${query}.`;
+        }
+        const open = normalized.match(/^(?:please\s+)?open\s+(google|youtube|wikipedia)$/);
+        if (open) {
+          const destinations = { google: 'https://www.google.com/', youtube: 'https://www.youtube.com/', wikipedia: 'https://www.wikipedia.org/' };
+          window.open(destinations[open[1]], '_blank', 'noopener,noreferrer');
+          return `Opening ${open[1]}.`;
+        }
+        return `I heard “${command}.” I can help with the time, date, a joke, web search, or opening Google, YouTube, and Wikipedia. For open-ended AI answers, connect a secure backend rather than putting an API key in this page.`;
+      }
+
+      function handleCommand(command) {
+        waitingForCommand = false;
+        setStatus('Working…');
+        const reply = answerFor(command);
+        speak(reply);
+      }
+
+      function processTranscript(transcript) {
+        const text = transcript.trim();
+        if (!text) return;
+        response.textContent = `Heard: “${text}”`;
+        if (waitingForCommand) {
+          handleCommand(text);
+          return;
+        }
+        const match = /\bjarvis\b/i.exec(text);
+        if (!match) return;
+        const command = text.slice(match.index + match[0].length).trim().replace(/^[,.:;!?-]+/, '');
+        waitingForCommand = true;
+        if (command) handleCommand(command);
+        else speak('Yes? What can I do for you?');
+      }
+
+      if (!Recognition) {
+        setStatus('Speech recognition is not supported in this browser. Try Chrome or Edge.');
+        startButton.disabled = true;
+      } else {
+        recognition = new Recognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+          recognizing = true;
+          setOrb('listening');
+          setStatus(waitingForCommand ? 'Listening for your command…' : 'Say “Jarvis” to wake me.');
+        };
+        recognition.onresult = (event) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) processTranscript(event.results[i][0].transcript);
+          }
+        };
+        recognition.onerror = (event) => {
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            listening = false;
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            setOrb('');
+            setStatus('Microphone access was denied. Allow it in your browser settings, then try again.');
+          } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+            setStatus(`Speech recognition error: ${event.error}`);
+          }
+        };
+        recognition.onend = () => {
+          recognizing = false;
+          if (listening && !speaking) scheduleRestart();
+        };
+
+        startButton.addEventListener('click', () => {
+          listening = true;
+          waitingForCommand = false;
+          startButton.disabled = true;
+          stopButton.disabled = false;
+          setStatus('Starting microphone…');
+          startRecognition();
+        });
+      }
+
+      stopButton.addEventListener('click', () => {
+        listening = false;
+        waitingForCommand = false;
+        clearTimeout(restartTimer);
+        if (recognition && recognizing) recognition.stop();
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        speaking = false;
+        recognizing = false;
+        startButton.disabled = !Recognition;
+        stopButton.disabled = true;
+        setOrb('');
+        setStatus('Stopped.');
+      });
+
+      testButton.addEventListener('click', () => speak('Hello. Jarvis voice is working.'));
+      commandForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const command = commandInput.value.trim();
+        if (!command) return;
+        commandInput.value = '';
+        handleCommand(command);
+      });
+
+      if ('speechSynthesis' in window) {
+        populateVoices();
+        window.speechSynthesis.addEventListener('voiceschanged', populateVoices);
+      }
+    })();
+  </script>
+</body>
+</html>
